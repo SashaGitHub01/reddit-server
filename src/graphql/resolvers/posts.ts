@@ -5,6 +5,7 @@ import { ApolloError, ForbiddenError, } from "apollo-server-express";
 import { isAuth } from "../../middleware/isAuth";
 import { Updoot } from "../../models/Updoot";
 import { getConnection } from "typeorm";
+import { User } from "../../models/User";
 
 @InputType()
 class PostInput {
@@ -37,18 +38,21 @@ export class PostResolver {
       return post.text
    }
 
+   @FieldResolver(() => String)
+   async creator(@Root() post: Post, @Ctx() { userLoader }: MyContext) {
+      return userLoader.load(post.creatorId)
+   }
+
    @FieldResolver(() => Number, { nullable: true })
    async voteStatus(
       @Root() post: Post,
-      @Ctx() { req }: MyContext
+      @Ctx() { req, voteStatusLoader }: MyContext
    ) {
       if (!(req.session as any).userId) return null
 
-      const status = await Updoot.findOne({
-         where: {
-            postId: post.id,
-            userId: (req.session as any).userId,
-         }
+      const status = await voteStatusLoader.load({
+         postId: post.id,
+         userId: (req.session as any).userId
       })
 
       return status?.value || null
@@ -62,7 +66,6 @@ export class PostResolver {
       const skip = limit * offset - limit
       const limitPlus = limit + 1
       const posts = await Post.find({
-         relations: ['creator'],
          order: {
             createdAt: 'DESC'
          },
@@ -121,7 +124,7 @@ export class PostResolver {
       @Arg('id', () => Int) id: number,
       @Arg('text', () => String) text: string,
       @Ctx() { req }: MyContext
-   ): Promise<Post | null> {
+   ): Promise<{ text: string }> {
       try {
          const post = await Post.findOne(id)
          if (!post) throw new ForbiddenError('Post doesn\'t exist')
@@ -130,7 +133,7 @@ export class PostResolver {
          post.text = text
          await post.save()
 
-         return post
+         return { text }
       } catch (err) {
          throw new ApolloError(err.message)
       }

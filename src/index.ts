@@ -19,6 +19,8 @@ import { Post } from "./models/Post";
 import { User } from "./models/User";
 import path from 'path';
 import { Updoot } from './models/Updoot';
+import { createUserLoader } from './utils/createUserLoader';
+import { createVoteStatusLoader } from './utils/createVoteStatsLoader';
 
 const corsOptions = {
    credentials: true,
@@ -77,7 +79,13 @@ const start = async () => {
             validate: false
          }),
          context: ({ req, res }) => {
-            return { req, res: res, redis }
+            return {
+               req,
+               res,
+               redis,
+               userLoader: createUserLoader(),
+               voteStatusLoader: createVoteStatusLoader()
+            }
          }
       })
       await apolloServer.start()
